@@ -1,0 +1,8 @@
+# vim swap files
+*.swp
+
+# audio files from songza
+*.mp4
+
+# python compiled files
+*.pyc
