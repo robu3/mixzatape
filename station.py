@@ -1,4 +1,4 @@
-import httplib, urllib, urllib2, argparse, json, os, threading, time
+import httplib, urllib, urllib2, argparse, json, os, threading, time, logging, os
 
 # Station
 # =======
@@ -6,13 +6,9 @@ import httplib, urllib, urllib2, argparse, json, os, threading, time
 # the specified player (VLC only at the moment)
 class Station:
 	# constructor
-	def __init__(self, station_id, player):
+	def __init__(self, player, station_id=0, debug=False):
 		# set station_id
-		if station_id is not None and len(station_id) > 0:
-			self.station_id = station_id
-		else:
-			# we need a random station id
-			self.station_id = 1393494
+		self.station_id = int(station_id)
 
 		# set the player for this station
 		if player is None:
@@ -20,15 +16,20 @@ class Station:
 		else:
 			self.player = player
 
+		# previous_track
+		# =============
+		# Dictionary of data for the previous track
+		self.previous_track = ""
+
 		# current_track
 		# =============
 		# Dictionary of data for the current track
 		self.current_track = ""
 
-		# previous_track
+		# next_track
 		# =============
-		# Dictionary of data for the previous track
-		self.previous_track = ""
+		# Dictionary of data for the next track
+		self.next_track = None
 
 		# track_start
 		# ===========
@@ -41,7 +42,29 @@ class Station:
 		self.flip = True
 
 		# turn debugging on
-		self.debug = False
+		self.debug = debug
+
+		# setup logger
+		# clear log on startup
+		logpath = "./.station.log"
+		if os.path.exists(logpath):
+			os.remove(logpath)
+
+		if self.debug:
+			self.logger = logging.getLogger("station")
+			handler = logging.FileHandler(logpath)
+			formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+			handler.setFormatter(formatter)
+			self.logger.addHandler(handler)
+			self.logger.setLevel(logging.DEBUG)
+
+		# HTTP headers used for requests
+		# fake the user agent so we're not rejected
+		self.headers = {
+			"Content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+			"Accept": "application/json, text/javascript, */*; q=0.01",
+			"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0.1453.93 Safari/537.36"
+		}
 		
 
 	# connect()
@@ -60,6 +83,12 @@ class Station:
 	# Returns the path to the station
 	def get_station_path(self):
 		return "/api/1/station/" + str(self.station_id)
+
+	# change_station(name, station_id)
+	# ================================
+	# Changes the station.
+	def change_station(self, name, station_id):
+		self.station_id = station_id
 		
 	# next()
 	# ======
@@ -70,20 +99,14 @@ class Station:
 		conn = self.connect()
 
 		# create post body
-		# fake the user agent so we're not rejected
-		headers = {
-			"Content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-			"Accept": "application/json, text/javascript, */*; q=0.01",
-			"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0.1453.93 Safari/537.36"
-		}
 		params = urllib.urlencode({"cover_size": "m", "format": "aac", "buffer": 0 })
-		conn.request("POST", self.get_station_path() + "/next", params, headers)
+		conn.request("POST", self.get_station_path() + "/next", params, self.headers)
 
 		response = conn.getresponse()
 		json_data = response.read()
 
 		if self.debug:
-			print "next track data: " + json_data
+			self.logger.debug("next() data: " + json_data)
 
 		# decode json data
 		return json.loads(json_data)
@@ -97,7 +120,7 @@ class Station:
 		track_data = self.next()
 
 		if self.debug:
-			print "next track: " + track_data["listen_url"]
+			self.logger.debug("next track: " + track_data["listen_url"])
 
 		# track_data -> listen_url
 		# download the file specified in the response
@@ -155,27 +178,37 @@ class Station:
 	# query_station()
 	# ===============
 	# Searches Songza for new stations by name
-	def query_station(query):
-		# TODO: here
+	def query_station(self, query):
 		# create connection
 		conn = self.connect()
 
-		# create post body
-		# fake the user agent so we're not rejected
-		headers = {
-			"Content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-			"Accept": "application/json, text/javascript, */*; q=0.01",
-			"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0.1453.93 Safari/537.36"
-		}
-		params = urllib.urlencode({"cover_size": "m", "format": "aac", "buffer": 0 })
-		conn.request("GET", "/api/1/search?query=" + query, headers)
+		# create request body
+		conn.request("GET", "/api/1/search/station?query=" + query, None, self.headers)
 
 		response = conn.getresponse()
 		json_data = response.read()
 
 		if self.debug:
-			print "station query results: " + json_data
+			self.logger.debug("station query results: " + json_data)
 
 		# decode json data
 		return json.loads(json_data)
 		
+	# vote(song_id, up)
+	# =================
+	# Up or downvotes the specified song
+	# * up: True for upvote, False for downvote
+	def vote(self, song_id, up):
+		# create connection
+		conn = self.connect()
+
+		# create request body
+		direction = "up" if up else "down"
+		url = "/api/1/station/{0}/song/{1}/vote/{2}".format(self.station_id, song_id, direction)
+
+		if self.debug:
+			self.logger.debug("{0}voted: {1}".format(direction, url))
+
+		conn.request("POST", url, None, self.headers)
+
+		response = conn.getresponse()

@@ -6,3 +6,5 @@
 
 # python compiled files
 *.pyc
+
+.DS_STORE

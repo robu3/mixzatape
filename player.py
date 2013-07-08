@@ -7,6 +7,13 @@ class VlcPlayer:
 	def __init__(self):
 		self.process = None
 
+		# is_paused
+		# =========
+		# True if playback is currently paused
+		self.is_paused = False
+
+		self.time = 0
+
 	#def __del__(self):
 		#self.process.close()
 
@@ -51,6 +58,7 @@ class VlcPlayer:
 	# =======
 	# Pauses playback.
 	def pause(self):
+		self.is_paused = not self.is_paused
 		self.send_command("pause\n")
 
 	# stop()
@@ -71,18 +79,28 @@ class VlcPlayer:
 	# Skips the current track
 	def skip(self):
 		self.send_command("next\n")
+		self.time = 0
 
 	# seek(seconds)
 	# =============
 	# Skips the current track
 	def seek(self, seconds):
 		self.send_command("seek {0}\n".format(seconds))
+		# update time value
+		# self.time += seconds
 
 	# get_time()
 	# ==========
 	# Gets the running time in for the current track.
 	def get_time(self):
-		return int(self.send_command_readline("get_time\n")[2:])
+		try:
+			# buffer the current time value
+			self.time = int(self.send_command_readline("get_time\n")[2:])
+		finally:
+			# Sometimes when seeking, VLC is slow to respond, and the STDOUT output
+			# gets out of sync. In this case, return the last know time value.
+			return self.time
+			
 
 	# play(file)
 	# ==========
