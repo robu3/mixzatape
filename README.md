@@ -1,10 +1,10 @@
 # MixZaTape
 
-A terminal Songza player. There's no better way to rock out than terminal window.
+A terminal player for Songza. There's no better way to rock out than via a terminal window.
 
 ## Installation
 
-1. Download and install the [VLC player](http://www.videolan.org/vlc/index.html)
+1. Download and install the [VLC player](http://www.videolan.org/vlc/index.html).
 2. Add the VLC executable to your path.
 	* For Mac OSX, it will be the path to the app bundle contents. Assuming a default install, add this line to your .bash_login: PATH=/Applications/VLC.app/Contents/MacOS:$PATH
 3. Make sure the path addition worked by typing "vlc" in the terminal; this should open VLC.
