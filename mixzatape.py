@@ -9,7 +9,6 @@ from mixzatape_ui import StationSearchBox
 # test station ID: 1393494
 
 # TODO:
-# * add up/downvote functionality
 # * add volume display
 # * add replay last song feature
 
@@ -48,6 +47,7 @@ class MixZaTape:
 	# ==============
 	# Builds and sets up the major screen components
 	def setup_screen(self):
+
 		# init main screen
 		self.ui = {
 			"track_info": urwid.Text(""),
@@ -56,13 +56,10 @@ class MixZaTape:
 			"progress_bar": urwid.Text(""),
 			"help_screen": self.build_help_screen(),
 			"search_screen": self.build_search_screen(),
-			"logo": self.build_logo()
+			"logo": self.build_logo(),
+			"footer": urwid.Text("")
 		}
-
-		# add widgets to main container
-		window = urwid.Pile([
-			self.ui["logo"],
-			urwid.Divider(),
+		window_walker = urwid.SimpleListWalker([
 			self.ui["track_info"],
 			urwid.Divider(),
 			self.ui["time_left"],
@@ -72,8 +69,16 @@ class MixZaTape:
 			urwid.Divider(u"\u2501", 1, 1),
 			self.ui["help_screen"]
 		])
+
+		window_walker.set_focus(7)
+
+		# add widgets to main window
+		window = urwid.ListBox(window_walker)
 		self.ui["window"] = window
-		self.ui["container"] = urwid.Filler(window, "top")
+		self.ui["window_walker"] = window_walker
+		
+		# build frame
+		self.ui["container"] = urwid.Frame(window, self.ui["logo"], self.ui["footer"], focus_part="body")
 		
 	# exit()
 	# ======
@@ -281,9 +286,9 @@ class MixZaTape:
 	# ===================
 	# Inserts the specified screen into the main window.
 	def show_screen(self, screen):
-		i = len(self.ui["window"].contents) - 1
-		self.ui["window"].contents[i] = (screen, ("weight", 1))
-		self.ui["window"].focus_position = i
+		i = len(self.ui["window"].body.positions()) - 1
+		self.ui["window_walker"].contents[i] = screen
+		self.ui["window_walker"].set_focus = i
 
 	# show_help()
 	# ===========
@@ -310,6 +315,13 @@ class MixZaTape:
 		)
 		self.station.change_station(station_name, station_id)
 		self.skip()
+
+	# set_status_line(message)
+	# ========================
+	# Sets the status in the footer.
+	def set_status_line(self, message):
+		self.ui["footer"].set_text(message)
+		
 		
 	# the below functions are wrappers for the station and player classes
 
@@ -353,11 +365,16 @@ class MixZaTape:
 		if bool(self.station.current_track):
 			self.station.vote(self.station.current_track["id"], True)
 
+			# show status
+			self.set_status_line("Upvoted: {0}".format(self.station.current_track["title"]))
+
 	# downvote current track
 	# and skip it
 	def downvote(self):
 		if bool(self.station.current_track):
 			self.station.vote(self.station.current_track["id"], False)
+			# show status
+			self.set_status_line("Downvoted: {0}".format(self.station.current_track["title"]))
 			self.skip()
 
 # ---------------------------------------------------------- #
