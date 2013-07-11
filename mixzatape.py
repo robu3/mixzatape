@@ -60,6 +60,7 @@ class MixZaTape:
 			"footer": urwid.Text("")
 		}
 		window_walker = urwid.SimpleListWalker([
+			urwid.Divider(),
 			self.ui["track_info"],
 			urwid.Divider(),
 			self.ui["time_left"],
@@ -70,7 +71,9 @@ class MixZaTape:
 			self.ui["help_screen"]
 		])
 
-		window_walker.set_focus(7)
+		# set default focus on last element in the list box
+		i = len(window_walker.positions()) - 1
+		window_walker.set_focus(i)
 
 		# add widgets to main window
 		window = urwid.ListBox(window_walker)
@@ -119,7 +122,7 @@ class MixZaTape:
 		palette = [
 			("bold", "default,bold", "default"),
 			("reversed", "standout", ""),
-			("logo", "standout", "black")
+			("logo", "default", "black")
 		]
 
 		# start the run loop
@@ -286,7 +289,7 @@ class MixZaTape:
 	# ===================
 	# Inserts the specified screen into the main window.
 	def show_screen(self, screen):
-		i = len(self.ui["window"].body.positions()) - 1
+		i = len(self.ui["window_walker"].positions()) - 1
 		self.ui["window_walker"].contents[i] = screen
 		self.ui["window_walker"].set_focus = i
 
@@ -358,7 +361,7 @@ class MixZaTape:
 		return self.player.time_remaining()
 
 	def seek(self):
-		return self.player.seek(self.player.get_time() + 30)
+		return self.player.seek(self.player.get_time() + 5)
 
 	# upvote current track
 	def upvote(self):
