@@ -1,10 +1,10 @@
-import subprocess, os, sys
+import subprocess, os, sys, logging, re
 
 # Many thanks to PyRadio (https://github.com/coderholic/pyradio)
 # for the media playing code (borrowed & remixed here; gotta love open source)
 # Wraps VLC player; assumes that "vlc" is in your path
 class VlcPlayer:
-	def __init__(self):
+	def __init__(self, debug=False):
 		self.process = None
 
 		# is_paused
@@ -13,6 +13,26 @@ class VlcPlayer:
 		self.is_paused = False
 
 		self.time = 0
+
+		self.debug = debug
+
+		# regex used to parse VLC STDOUT for time remaining
+		# sometimes we get extra prompt characters that need to be trimmed
+		self.time_remaining_regex = r"[> ]*(\d*)\r\n"
+
+		# setup logger
+		# clear log on startup
+		logpath = "./.player.log"
+		if os.path.exists(logpath):
+			os.remove(logpath)
+
+		if self.debug:
+			self.logger = logging.getLogger("player")
+			handler = logging.FileHandler(logpath)
+			formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+			handler.setFormatter(formatter)
+			self.logger.addHandler(handler)
+			self.logger.setLevel(logging.DEBUG)
 
 	#def __del__(self):
 		#self.process.close()
@@ -126,15 +146,40 @@ class VlcPlayer:
 	# ================
 	# The amount of time remaining on the current track.
 	def time_remaining(self):
+		default = -1
+
 		if (self.is_open()):	
 			try:
-				# chop off leading chars
-				duration = int(self.send_command_readline("get_length\n")[2:])
-				remaining = int(self.send_command_readline("get_time\n")[2:])
+				
+				# use regex to chop off leading chars
+				# attempt to read duration of track
+				response_text = self.send_command_readline("get_length\n")
+				match_dur = re.search(self.time_remaining_regex, response_text)
 
-				return duration - remaining
+				if match_dur:
+					duration = int(match_dur.group(1))
+				else:
+					self.logger.debug("unable to parse time remaining text: {0}", response_text)
 
-			except:
-				return -1
+				# attempt to read current time elasped
+				response_text = self.send_command_readline("get_time\n")
+				match_rem = re.search(self.time_remaining_regex, response_text)
 
-		return -1
+				if match_rem:
+					remaining = int(match_rem.group(1))
+				else:
+					self.logger.debug("unable to parse time remaining text: {0}", response_text)
+
+				#duration = int(self.send_command_readline("get_length\n")[2:])
+				#remaining = int(self.send_command_readline("get_time\n")[2:])
+
+				if match_dur and match_rem:
+					return duration - remaining
+				else:
+					return default
+
+			except Exception, ex:
+				self.logger.error("error: " + str(ex))
+				return default
+
+		return default

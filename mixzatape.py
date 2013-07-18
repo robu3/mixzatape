@@ -43,6 +43,16 @@ class MixZaTape:
 			"current_station":	"Station: "
 		}
 
+		# save_file
+		# =========
+		# Used to save & persist app data between sessions
+		self.save_file = "./.save"
+
+		# save_data
+		# =========
+		# Assorted app data that we want to be persisted
+		self.save_data = {}
+
 	# setup_screen()
 	# ==============
 	# Builds and sets up the major screen components
@@ -82,6 +92,9 @@ class MixZaTape:
 		
 		# build frame
 		self.ui["container"] = urwid.Frame(window, self.ui["logo"], self.ui["footer"], focus_part="body")
+
+		# attempt to load any previously saved app data
+		self.load_state()
 		
 	# exit()
 	# ======
@@ -107,7 +120,7 @@ class MixZaTape:
 		args = parser.parse_args()
 
 		# instatiate a player and station
-		self.player = VlcPlayer()
+		self.player = VlcPlayer(args.debug)
 		self.station = Station(self.player, 0, args.debug)
 
 		# start streaming music, if station id was provided
@@ -319,12 +332,39 @@ class MixZaTape:
 		self.station.change_station(station_name, station_id)
 		self.skip()
 
+		# save current station info
+		self.save_data["station_id"] = station_id
+		self.save_data["station_name"] = station_name
+		self.save_state()
+
 	# set_status_line(message)
 	# ========================
 	# Sets the status in the footer.
 	def set_status_line(self, message):
 		self.ui["footer"].set_text(message)
 		
+
+	# save_state()
+	# ============
+	# Saves the current state of the app to file
+	def save_state(self):
+		with open(self.save_file, "w") as file:
+			file.write(json.dumps(self.save_data))
+
+	# load_state()
+	# ============
+	# Loads the current state of the app from file
+	def load_state(self):
+		# attempt to load file
+		try:
+			with open(self.save_file, "r") as file:
+				text = file.read()
+				if len(text) > 0:
+					self.save_data = json.loads(text)
+					self.change_station(self.save_data["station_name"], self.save_data["station_id"])
+		except Exception as ex:
+			print(str(ex))
+
 		
 	# the below functions are wrappers for the station and player classes
 

@@ -7,4 +7,10 @@
 # python compiled files
 *.pyc
 
+# log files
+*.log
+
+# saved data file
+.save
+
 .DS_STORE
